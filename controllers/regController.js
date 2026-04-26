@@ -30,6 +30,13 @@ async function sendMail(to, subject, text) {
     })
 }
 
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 async function regForEvent(req, res) {
     try {
@@ -50,15 +57,16 @@ async function regForEvent(req, res) {
             return res.status(400).json({ error: 'User already registered' });
         }
 
-        const count = await regModel.countDocuments({ eventId, status: 'approved' })
+        const count = await regModel.countDocuments({
+            eventId,
+            status: 'approved'
+        });
 
         if (count >= findEvent.maxParticipants) {
             return res.status(400).json({ error: 'Event is full' });
         }
 
-
         const qrToken = crypto.randomBytes(16).toString('hex');
-
         const qrImage = await QRCode.toDataURL(qrToken);
 
         const regUser = await regModel.create({
@@ -66,6 +74,24 @@ async function regForEvent(req, res) {
             eventId,
             qrToken,
             status: 'pending'
+        });
+
+        const user = await userModel.findById(userId);
+
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: `Registration Successful - ${findEvent.title}`,
+            html: `
+                <h2>Registration Successful</h2>
+                <p>Hello ${user.name},</p>
+                <p>You have successfully registered for <b>${findEvent.title}</b>.</p>
+                <p>Status: Pending Approval</p>
+                <p>Keep this QR code safe for attendance.</p>
+                <img src="${qrImage}" alt="QR Code" />
+                <br/>
+                <p>Thank you!</p>
+            `
         });
 
         res.status(201).json({
@@ -86,22 +112,46 @@ async function regForEvent(req, res) {
 async function myReg(req, res) {
     try {
         const userId = req.user.id;
-        const regs = await regModel.find({ userId }).populate('eventId', 'title date').sort({ createdAt: -1 }).lean();
 
-        if (regs.length === 0) return res.status(200).json({ message: 'No registrations yet' });
+        const regs = await regModel
+            .find({ userId })
+            .populate('eventId', 'title date isTeamEvent')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        if (!regs.length) {
+            return res.status(200).json({
+                message: 'No registrations yet'
+            });
+        }
+
+        const formatted = regs.map(r => ({
+            id: r._id,
+            event: r.eventId
+                ? {
+                    id: r.eventId._id,
+                    title: r.eventId.title,
+                    date: r.eventId.date,
+                    isTeamEvent: r.eventId.isTeamEvent
+                }
+                : null,
+            status: r.status,
+            attended: r.attended,
+            createdAt: r.createdAt
+        }));
 
         res.status(200).json({
-            registrations: regs
-        })
+            registrations: formatted
+        });
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
-
+}
 
 async function updateRegStatus(req, res) {
     try {
-        const regId = req.params.id;
+        const { id: regId } = req.params;
         const { status } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(regId)) {
@@ -125,15 +175,12 @@ async function updateRegStatus(req, res) {
             });
         }
 
-        let event = null;
+        let event = await eventModel.findById(reg.eventId);
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
 
         if (status === 'approved') {
-            event = await eventModel.findById(reg.eventId);
-
-            if (!event) {
-                return res.status(404).json({ error: 'Event not found' });
-            }
-
             const approvedCount = await regModel.countDocuments({
                 eventId: reg.eventId,
                 status: 'approved'
@@ -155,24 +202,34 @@ async function updateRegStatus(req, res) {
         try {
             const user = await userModel.findById(reg.userId);
 
-            if (!event) {
-                event = await eventModel.findById(reg.eventId);
-            }
-
-            if (user && event) {
+            if (user) {
                 if (status === 'approved') {
                     await sendMail(
                         user.email,
-                        'Registration Approved',
-                        `You are approved for ${event.title}`
+                        `Registration Approved - ${event.title}`,
+                        `
+                        <h2>You're Approved!</h2>
+                        <p>Hello ${user.name},</p>
+                        <p>Your registration for <b>${event.title}</b> has been approved.</p>
+                        <p>Please keep your QR code ready for attendance.</p>
+                        <br/>
+                        <p>See you at the event!</p>
+                        `
                     );
                 }
 
                 if (status === 'rejected') {
                     await sendMail(
                         user.email,
-                        'Registration Rejected',
-                        `Sorry, your registration for ${event.title} was rejected`
+                        `Registration Rejected - ${event.title}`,
+                        `
+                        <h2>Registration Update</h2>
+                        <p>Hello ${user.name},</p>
+                        <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
+                        <p>If you believe this was a mistake, please contact the organizers.</p>
+                        <br/>
+                        <p>Thank you for your interest.</p>
+                        `
                     );
                 }
             }
@@ -183,7 +240,10 @@ async function updateRegStatus(req, res) {
 
         res.status(200).json({
             message: 'Status updated successfully',
-            updatedReg
+            registration: {
+                id: updatedReg._id,
+                status: updatedReg.status
+            }
         });
 
     } catch (err) {
@@ -196,9 +256,9 @@ async function getAllRegistrations(req, res) {
     try {
         const { status, eventId, attended } = req.query;
 
-        let filter = {};
+        const filter = {};
 
-        if (status) {
+        if (status !== undefined) {
             if (!['pending', 'approved', 'rejected'].includes(status)) {
                 return res.status(400).json({
                     error: 'Invalid status filter'
@@ -207,16 +267,16 @@ async function getAllRegistrations(req, res) {
             filter.status = status;
         }
 
-        if (attended) {
-            if (!['true', 'false'].includes(status)) {
+        if (attended !== undefined) {
+            if (!['true', 'false'].includes(attended)) {
                 return res.status(400).json({
-                    error: 'Invalid status filter (true/false)'
+                    error: 'Invalid attended filter (true/false)'
                 });
             }
             filter.attended = attended === 'true';
         }
 
-        if (eventId) {
+        if (eventId !== undefined) {
             if (!mongoose.Types.ObjectId.isValid(eventId)) {
                 return res.status(400).json({
                     error: 'Invalid event ID'
@@ -228,12 +288,34 @@ async function getAllRegistrations(req, res) {
         const regs = await regModel
             .find(filter)
             .populate('userId', 'name email')
-            .populate('eventId', 'title date')
+            .populate('eventId', 'title date isTeamEvent')
             .sort({ createdAt: -1 })
             .lean();
 
+        const formatted = regs.map(r => ({
+            id: r._id,
+            user: r.userId
+                ? {
+                    id: r.userId._id,
+                    name: r.userId.name,
+                    email: r.userId.email
+                }
+                : null,
+            event: r.eventId
+                ? {
+                    id: r.eventId._id,
+                    title: r.eventId.title,
+                    date: r.eventId.date,
+                    isTeamEvent: r.eventId.isTeamEvent
+                }
+                : null,
+            status: r.status,
+            attended: r.attended,
+            createdAt: r.createdAt
+        }));
+
         res.status(200).json({
-            registrations: regs
+            registrations: formatted
         });
 
     } catch (err) {
@@ -251,7 +333,11 @@ async function scanAttendance(req, res) {
             return res.status(400).json({ error: 'QR token required' });
         }
 
-        const userReg = await regModel.findOne({ qrToken });
+        const userReg = await regModel
+            .findOne({ qrToken })
+            .populate('userId', 'name email')
+            .populate('eventId', 'title date')
+            .lean();
 
         if (!userReg) {
             return res.status(400).json({ error: 'Invalid QR' });
@@ -273,11 +359,28 @@ async function scanAttendance(req, res) {
             { qrToken },
             { attended: true },
             { new: true }
-        );
+        ).lean();
 
         res.status(200).json({
             message: 'Attendance marked successfully',
-            user: updatedUserReg
+            registration: {
+                id: updatedUserReg._id,
+                user: userReg.userId
+                    ? {
+                        id: userReg.userId._id,
+                        name: userReg.userId.name,
+                        email: userReg.userId.email
+                    }
+                    : null,
+                event: userReg.eventId
+                    ? {
+                        id: userReg.eventId._id,
+                        title: userReg.eventId.title,
+                        date: userReg.eventId.date
+                    }
+                    : null,
+                attended: updatedUserReg.attended
+            }
         });
 
     } catch (err) {
@@ -285,14 +388,13 @@ async function scanAttendance(req, res) {
     }
 };
 
-
 async function exportRegistrationsCSV(req, res) {
     try {
         const { status, eventId, attended } = req.query;
 
-        let filter = {};
+        const filter = {};
 
-        if (status) {
+        if (status !== undefined) {
             if (!['pending', 'approved', 'rejected'].includes(status)) {
                 return res.status(400).json({ error: 'Invalid status filter' });
             }
@@ -308,7 +410,7 @@ async function exportRegistrationsCSV(req, res) {
             filter.attended = attended === 'true';
         }
 
-        if (eventId) {
+        if (eventId !== undefined) {
             if (!mongoose.Types.ObjectId.isValid(eventId)) {
                 return res.status(400).json({ error: 'Invalid event ID' });
             }
@@ -318,34 +420,49 @@ async function exportRegistrationsCSV(req, res) {
         const regs = await regModel
             .find(filter)
             .populate('userId', 'name email')
-            .populate('eventId', 'title date')
+            .populate('eventId', 'title date isTeamEvent')
+            .sort({ createdAt: -1 })
             .lean();
 
         const data = regs.map(r => ({
+            id: r._id.toString(),
             name: r.userId?.name || '',
             email: r.userId?.email || '',
             event: r.eventId?.title || '',
-            date: r.eventId?.date || '',
+            eventDate: r.eventId?.date || '',
+            isTeamEvent: r.eventId?.isTeamEvent ?? '',
             status: r.status,
-            attended: r.attended
+            attended: r.attended,
+            createdAt: r.createdAt
         }));
 
-        const parser = new Parser();
+        const fields = [
+            'id',
+            'name',
+            'email',
+            'event',
+            'eventDate',
+            'isTeamEvent',
+            'status',
+            'attended',
+            'createdAt'
+        ];
+
+        const parser = new Parser({ fields });
         const csv = parser.parse(data);
 
-        res.header('Content-Type', 'text/csv');
-        res.attachment('registrations.csv');
-        res.send(csv);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="registrations.csv"');
+        res.status(200).send(csv);
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
-
 async function generateCertificates(req, res) {
     try {
-        const eventId = req.params.eventId;
+        const { eventId } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(eventId)) {
             return res.status(400).json({ error: 'Invalid event ID' });
@@ -364,7 +481,7 @@ async function generateCertificates(req, res) {
             })
             .populate('userId', 'name email');
 
-        if (regs.length === 0) {
+        if (!regs.length) {
             return res.status(200).json({
                 message: 'No eligible users for certificates'
             });
@@ -372,13 +489,12 @@ async function generateCertificates(req, res) {
 
         for (const reg of regs) {
             const user = reg.userId;
-
             if (!user) continue;
 
             const doc = new PDFDocument();
             const buffers = [];
 
-            doc.on('data', buffers.push.bind(buffers));
+            doc.on('data', chunk => buffers.push(chunk));
 
             doc.on('end', async () => {
                 const pdfBuffer = Buffer.concat(buffers);
@@ -387,8 +503,11 @@ async function generateCertificates(req, res) {
                     await transporter.sendMail({
                         from: process.env.EMAIL_USER,
                         to: user.email,
-                        subject: 'Certificate of Participation',
-                        text: `Congratulations ${user.name}! You have successfully attended ${event.title}.`,
+                        subject: `Certificate - ${event.title}`,
+                        html: `
+                            <h2>Congratulations ${user.name}</h2>
+                            <p>You have successfully attended <b>${event.title}</b>.</p>
+                        `,
                         attachments: [
                             {
                                 filename: 'certificate.pdf',
@@ -401,50 +520,23 @@ async function generateCertificates(req, res) {
                 }
             });
 
-            doc.fontSize(20).text('Certificate of Participation', {
-                align: 'center'
-            });
-
+            doc.fontSize(20).text('Certificate of Participation', { align: 'center' });
             doc.moveDown();
-
-            doc.fontSize(14).text(
-                `This is to certify that`,
-                { align: 'center' }
-            );
-
+            doc.fontSize(14).text('This is to certify that', { align: 'center' });
             doc.moveDown();
-
-            doc.fontSize(18).text(
-                user.name,
-                { align: 'center' }
-            );
-
+            doc.fontSize(18).text(user.name, { align: 'center' });
             doc.moveDown();
-
-            doc.fontSize(14).text(
-                `has successfully attended the event`,
-                { align: 'center' }
-            );
-
+            doc.fontSize(14).text('has successfully attended the event', { align: 'center' });
             doc.moveDown();
-
-            doc.fontSize(16).text(
-                event.title,
-                { align: 'center' }
-            );
-
+            doc.fontSize(16).text(event.title, { align: 'center' });
             doc.moveDown();
-
-            doc.fontSize(12).text(
-                `Date: ${event.date.toDateString()}`,
-                { align: 'center' }
-            );
+            doc.fontSize(12).text(`Date: ${new Date(event.date).toDateString()}`, { align: 'center' });
 
             doc.end();
         }
 
         res.status(200).json({
-            message: 'Certificates are being generated and sent via email'
+            message: 'Certificates are being generated and sent'
         });
 
     } catch (err) {
@@ -455,37 +547,64 @@ async function generateCertificates(req, res) {
 async function eventAnalytics(req, res) {
     try {
         const { eventId } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(eventId)) return res.status(400).json({ error: 'invalid event ID' });
+
+        if (!mongoose.Types.ObjectId.isValid(eventId)) {
+            return res.status(400).json({ error: 'Invalid event ID' });
+        }
 
         const event = await eventModel.findById(eventId);
-        if (!event) return res.status(404).json({ error: 'event not found' });
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
 
-        const { title, description, date, maxParticipants, maxTeams, maxTeamSize, isTeamEvent, createdBy, createdAt } = event;
+        const {
+            title,
+            description,
+            date,
+            maxParticipants,
+            maxTeams,
+            maxTeamSize,
+            isTeamEvent,
+            createdBy,
+            createdAt
+        } = event;
 
-        const analyticsQueries = [
+        const [total, approved, rejected, attended] = await Promise.all([
             regModel.countDocuments({ eventId }),
             regModel.countDocuments({ eventId, status: 'approved' }),
             regModel.countDocuments({ eventId, status: 'rejected' }),
             regModel.countDocuments({ eventId, attended: true })
-        ];
-        const [total, approved, rejected, attended] = await Promise.all(analyticsQueries);
-        const spotsLeft = maxParticipants - approved;
+        ]);
 
-        const attendanceRate = approved > 0 ? ((attended / approved) * 100).toFixed(2) + '%' : '0%';
-        const conversionRate = total > 0 ? ((approved / total) * 100).toFixed(2) + '%' : '0%';
+        const spotsLeft = Math.max(maxParticipants - approved, 0);
+
+        const attendanceRate = approved > 0
+            ? ((attended / approved) * 100).toFixed(2) + '%'
+            : '0%';
+
+        const conversionRate = total > 0
+            ? ((approved / total) * 100).toFixed(2) + '%'
+            : '0%';
+
         const noShow = Math.max(approved - attended, 0);
-        const fillRate = maxParticipants > 0 ? ((approved / maxParticipants) * 100).toFixed(2) + '%' : '0%';
+
+        const fillRate = maxParticipants > 0
+            ? ((approved / maxParticipants) * 100).toFixed(2) + '%'
+            : '0%';
 
         let eventStatus = 'upcoming';
-        if (new Date() > Date(date)) {
-            eventStatus = 'completed'
+
+        if (new Date() > new Date(date)) {
+            eventStatus = 'completed';
         } else if (approved >= maxParticipants) {
             eventStatus = 'full';
-        };
+        }
 
-        const teamCount = isTeamEvent ? await teamModel.countDocuments({ eventId }) : null;
+        const teamCount = isTeamEvent
+            ? await teamModel.countDocuments({ eventId })
+            : null;
+
         const creator = await userModel.findById(createdBy, { name: 1 });
-
 
         return res.status(200).json({
             eventInfo: {
@@ -497,10 +616,9 @@ async function eventAnalytics(req, res) {
                 maxTeamSize,
                 maxParticipants,
                 createdAt,
-                createdBy: creator ? {
-                    id: creator._id,
-                    name: creator.name
-                } : null,
+                createdBy: creator
+                    ? { id: creator._id, name: creator.name }
+                    : null
             },
             stats: {
                 totalRegistrations: total,
@@ -514,13 +632,13 @@ async function eventAnalytics(req, res) {
                 fillRate,
                 isFull: spotsLeft <= 0,
                 eventStatus,
-                teamCount: isTeamEvent ? teamCount : null,
+                teamCount
             }
         });
+
     } catch (error) {
-        console.error(error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
-}
+};
 
 module.exports = { updateRegStatus, regForEvent, myReg, getAllRegistrations, updateRegStatus, scanAttendance, exportRegistrationsCSV, generateCertificates, eventAnalytics }
