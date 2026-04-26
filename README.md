@@ -97,35 +97,47 @@ http://localhost:3000/api
 
 ### Authentication
 
-* POST /auth/signup
-* POST /auth/login
-* POST /auth/logout
-* GET  /auth/me
+POST   /api/auth/signup
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
+
 
 ### Events
 
-* POST   /events
-* GET    /events
-* GET    /events/:id
-* PATCH  /events/:id
-* DELETE /events/:id
+POST   /api/events                (admin)
+GET    /api/events
+GET    /api/events/:id
+PATCH  /api/events/:id            (admin)
+DELETE /api/events/:id            (admin)
+
 
 ### Registration
 
-* POST /events/:id/register
-* GET  /my/registrations
+POST   /api/events/:id/register
+GET    /api/my/registrations
+
 
 ### Admin
 
-* GET   /admin/registrations
-* PATCH /admin/registrations/:id
-* GET   /admin/registrations/export
-* POST  /admin/events/:eventId/certificates
+GET    /api/admin/registrations
+PATCH  /api/admin/registrations/:id
+GET    /api/admin/registrations/export
+POST   /api/admin/events/:eventId/certificates
+GET    /api/admin/events/:eventId/analytics
+
 
 ### Attendance
 
-* POST /attendance/scan
+POST   /api/attendance/scan
 
+
+### Teams
+
+POST   /api/events/:eventId/team
+POST   /api/team/join
+GET    /api/team/my
+DELETE /api/team/:teamId/members/:userId
 ---
 
 ## Environment Variables
