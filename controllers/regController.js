@@ -5,7 +5,7 @@ const { userModel, eventModel, teamModel, regModel } = require('../models/model.
 const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
 const { authMiddleware } = require('../middlewares/authMiddleware.js');
 const { json } = require('express');
-const { Schema } = require('mongoose');
+const { Schema, default: mongoose } = require('mongoose');
 const QRCode = require('qrcode');
 const { Parser } = require('json2csv');
 const crypto = require('crypto');
@@ -351,7 +351,6 @@ async function generateCertificates(req, res) {
             return res.status(400).json({ error: 'Invalid event ID' });
         }
 
-        // 🔍 find event
         const event = await eventModel.findById(eventId);
         if (!event) {
             return res.status(404).json({ error: 'Event not found' });
@@ -450,6 +449,77 @@ async function generateCertificates(req, res) {
 
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+}
+
+async function eventAnalytics(req, res) {
+    try {
+        const { eventId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(eventId)) return res.status(400).json({ error: 'invalid event ID' });
+
+        const event = await eventModel.findById(eventId);
+        if (!event) return res.status(404).json({ error: 'event not found' });
+
+        const { title, description, date, maxParticipants, maxTeams, maxTeamSize, isTeamEvent, createdBy, createdAt } = event;
+
+        const analyticsQueries = [
+            regModel.countDocuments({ eventId }),
+            regModel.countDocuments({ eventId, status: 'approved' }),
+            regModel.countDocuments({ eventId, status: 'rejected' }),
+            regModel.countDocuments({ eventId, attended: true })
+        ];
+        const [total, approved, rejected, attended] = await Promise.all(analyticsQueries);
+        const spotsLeft = maxParticipants - approved;
+
+        const attendanceRate = approved > 0 ? ((attended / approved) * 100).toFixed(2) + '%' : '0%';
+        const conversionRate = total > 0 ? ((approved / total) * 100).toFixed(2) + '%' : '0%';
+        const noShow = Math.max(approved - attended, 0);
+        const fillRate = maxParticipants > 0 ? ((approved / maxParticipants) * 100).toFixed(2) + '%' : '0%';
+
+        let eventStatus = 'upcoming';
+        if (new Date() > Date(date)) {
+            eventStatus = 'completed'
+        } else if (approved >= maxParticipants) {
+            eventStatus = 'full';
+        };
+
+        const teamCount = isTeamEvent ? await teamModel.countDocuments({ eventId }) : null;
+        const creator = await userModel.findById(createdBy, { name: 1 });
+
+
+        return res.status(200).json({
+            eventInfo: {
+                title,
+                description,
+                date,
+                isTeamEvent,
+                maxTeams,
+                maxTeamSize,
+                maxParticipants,
+                createdAt,
+                createdBy: creator ? {
+                    id: creator._id,
+                    name: creator.name
+                } : null,
+            },
+            stats: {
+                totalRegistrations: total,
+                approved,
+                rejected,
+                attended,
+                attendanceRate,
+                conversionRate,
+                noShow,
+                spotsLeft,
+                fillRate,
+                isFull: spotsLeft <= 0,
+                eventStatus,
+                teamCount: isTeamEvent ? teamCount : null,
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
 

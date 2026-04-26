@@ -48,6 +48,8 @@ const eventSchema = new mongoose.Schema({
     date: { type: Date, required: true },
     maxParticipants: { type: Number, required: true },
     maxTeams: { type: Number },
+    maxTeamSize: { type: Number },
+    isTeamEvent: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }
 }, { timestamps: true });
 
