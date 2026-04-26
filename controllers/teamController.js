@@ -10,6 +10,14 @@ import nodemailer from 'nodemailer';
 
 dotenv.config();
 
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
 export async function createTeam(req, res) {
     try {
         const { eventId } = req.params;
@@ -71,6 +79,36 @@ export async function createTeam(req, res) {
             teamCode
         });
 
+        try {
+            const user = await userModel.findById(userId);
+
+            if (user) {
+                const html = `
+                    <h2>🎉 Team Created Successfully!</h2>
+                    <p>Hello ${user.name},</p>
+                    <p>Congratulations! You have created a team for <b>${event.title}</b>.</p>
+                    
+                    <p><b>Team Name:</b> ${newTeam.name}</p>
+                    <p><b>Team Code:</b> ${teamCode}</p>
+
+                    <p>Share this team code with your teammates so they can join.</p>
+                    <br/>
+                    <p>Best of luck for the event 🚀</p>
+                `;
+                console.log("Sending team creation email...");
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: `Team Created - ${event.title}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+        } catch (mailErr) {
+            console.log('Team creation email failed:', mailErr.message);
+        }
+
         res.status(201).json({
             message: 'team created successfully',
             team: newTeam
@@ -79,7 +117,7 @@ export async function createTeam(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
+}
 
 export async function joinTeam(req, res) {
     try {
@@ -143,6 +181,51 @@ export async function joinTeam(req, res) {
             { new: true }
         );
 
+        try {
+            const user = await userModel.findById(userId);
+            const leader = await userModel.findById(team.leaderId);
+
+            if (user) {
+                const html = `
+                    <h2>🎉 Joined Team Successfully</h2>
+                    <p>Hello ${user.name},</p>
+                    <p>You have joined the team <b>${team.name}</b> for <b>${event.title}</b>.</p>
+                    <p><b>Team Code:</b> ${team.teamCode}</p>
+                    <br/>
+                    <p>Best of luck 🚀</p>
+                `;
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: `Joined Team - ${event.title}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+
+            if (leader) {
+                const html = `
+                    <h2>👥 New Member Joined</h2>
+                    <p>Hello ${leader.name},</p>
+                    <p><b>${user.name}</b> has joined your team <b>${team.name}</b>.</p>
+                    <br/>
+                    <p>Keep building your team</p>
+                `;
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: leader.email,
+                    subject: `New Member Joined - ${team.name}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+
+        } catch (mailErr) {
+            console.log('Join team email failed:', mailErr.message);
+        }
+
         res.status(200).json({
             message: 'joined team successfully',
             team: updatedTeam
@@ -151,7 +234,7 @@ export async function joinTeam(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
+}
 
 export async function removeMember(req, res) {
     try {
@@ -199,6 +282,49 @@ export async function removeMember(req, res) {
             { new: true }
         );
 
+        try {
+            const removedUser = await userModel.findById(targetUserId);
+            const leader = await userModel.findById(requesterId);
+            const event = await eventModel.findById(team.eventId);
+
+            if (removedUser) {
+                const html = `
+                    <h2>⚠️ Removed from Team</h2>
+                    <p>Hello ${removedUser.name},</p>
+                    <p>You have been removed from the team <b>${team.name}</b> for <b>${event.title}</b>.</p>
+                    <br/>
+                    <p>If this was unexpected, please contact your team leader.</p>
+                `;
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: removedUser.email,
+                    subject: `Removed from Team - ${team.name}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+
+            if (leader) {
+                const html = `
+                    <h2>Member Removed</h2>
+                    <p>Hello ${leader.name},</p>
+                    <p>You have successfully removed a member from your team <b>${team.name}</b>.</p>
+                `;
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: leader.email,
+                    subject: `Member Removed - ${team.name}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+
+        } catch (mailErr) {
+            console.log('Remove member email failed:', mailErr.message);
+        }
+
         return res.status(200).json({
             message: 'member removed successfully',
             team: updatedTeam
@@ -207,7 +333,7 @@ export async function removeMember(req, res) {
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
-};
+}
 
 export async function getMyTeam(req, res) {
     try {

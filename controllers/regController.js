@@ -69,23 +69,35 @@ export async function regForEvent(req, res) {
             status: 'pending'
         });
 
-        const user = await userModel.findById(userId);
+        try {
+            const user = await userModel.findById(userId);
 
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: user.email,
-            subject: `Registration Successful - ${findEvent.title}`,
-            html: `
-                <h2>Registration Successful</h2>
-                <p>Hello ${user.name},</p>
-                <p>You have successfully registered for <b>${findEvent.title}</b>.</p>
-                <p>Status: Pending Approval</p>
-                <p>Keep this QR code safe for attendance.</p>
-                <img src="${qrImage}" alt="QR Code" />
-                <br/>
-                <p>Thank you!</p>
-            `
-        });
+            if (user) {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: `Registration Successful - ${findEvent.title}`,
+                    html: `
+                        <h2>Registration Successful</h2>
+                        <p>Hello ${user.name},</p>
+                        <p>You have successfully registered for <b>${findEvent.title}</b>.</p>
+                        <p>Status: Pending Approval</p>
+                        <p>Your QR code is attached below.</p>
+                        <br/>
+                        <p>Thank you!</p>
+                    `,
+                    attachments: [
+                        {
+                            filename: 'qr.png',
+                            content: qrImage.split("base64,")[1],
+                            encoding: 'base64'
+                        }
+                    ]
+                });
+            }
+        } catch (mailErr) {
+            console.log("Email failed:", mailErr.message);
+        }
 
         res.status(201).json({
             message: 'Registration successful',
@@ -100,7 +112,7 @@ export async function regForEvent(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-}
+};
 
 export async function myReg(req, res) {
     try {
@@ -168,7 +180,7 @@ export async function updateRegStatus(req, res) {
             });
         }
 
-        let event = await eventModel.findById(reg.eventId);
+        const event = await eventModel.findById(reg.eventId);
         if (!event) {
             return res.status(404).json({ error: 'Event not found' });
         }
@@ -186,21 +198,21 @@ export async function updateRegStatus(req, res) {
             }
         }
 
-        const updatedReg = await regModel.findByIdAndUpdate(
-            regId,
-            { status },
-            { new: true }
-        );
+        reg.status = status;
+        await reg.save();
 
         try {
             const user = await userModel.findById(reg.userId);
 
             if (user) {
-                if (status === 'approved') {
-                    await sendMail(
-                        user.email,
-                        `Registration Approved - ${event.title}`,
-                        `
+                const subject =
+                    status === 'approved'
+                        ? `Registration Approved - ${event.title}`
+                        : `Registration Rejected - ${event.title}`;
+
+                const html =
+                    status === 'approved'
+                        ? `
                         <h2>You're Approved!</h2>
                         <p>Hello ${user.name},</p>
                         <p>Your registration for <b>${event.title}</b> has been approved.</p>
@@ -208,34 +220,32 @@ export async function updateRegStatus(req, res) {
                         <br/>
                         <p>See you at the event!</p>
                         `
-                    );
-                }
-
-                if (status === 'rejected') {
-                    await sendMail(
-                        user.email,
-                        `Registration Rejected - ${event.title}`,
-                        `
+                        : `
                         <h2>Registration Update</h2>
                         <p>Hello ${user.name},</p>
                         <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
                         <p>If you believe this was a mistake, please contact the organizers.</p>
                         <br/>
                         <p>Thank you for your interest.</p>
-                        `
-                    );
-                }
-            }
+                        `;
 
-        } catch (err) {
-            console.log('Email failed:', err.message);
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+        } catch (mailErr) {
+            console.log('Email failed:', mailErr.message);
         }
 
         res.status(200).json({
             message: 'Status updated successfully',
             registration: {
-                id: updatedReg._id,
-                status: updatedReg.status
+                id: reg._id,
+                status: reg.status
             }
         });
 
@@ -354,6 +364,32 @@ export async function scanAttendance(req, res) {
             { new: true }
         ).lean();
 
+        try {
+            const user = userReg.userId;
+            const event = userReg.eventId;
+
+            if (user && event) {
+                const html = `
+                    <h2>Attendance Confirmed</h2>
+                    <p>Hello ${user.name},</p>
+                    <p>Your attendance for <b>${event.title}</b> has been successfully recorded.</p>
+                    <p>Date: ${new Date(event.date).toDateString()}</p>
+                    <br/>
+                    <p>Thank you for participating!</p>
+                `;
+
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: `Attendance Confirmed - ${event.title}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, '')
+                });
+            }
+        } catch (mailErr) {
+            console.log('Attendance email failed:', mailErr.message);
+        }
+
         res.status(200).json({
             message: 'Attendance marked successfully',
             registration: {
@@ -379,7 +415,7 @@ export async function scanAttendance(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
+}
 
 export async function exportRegistrationsCSV(req, res) {
     try {
@@ -484,52 +520,59 @@ export async function generateCertificates(req, res) {
             const user = reg.userId;
             if (!user) continue;
 
-            const doc = new PDFDocument();
-            const buffers = [];
+            const pdfBuffer = await new Promise((resolve, reject) => {
+                const doc = new PDFDocument();
+                const buffers = [];
 
-            doc.on('data', chunk => buffers.push(chunk));
+                doc.on('data', chunk => buffers.push(chunk));
+                doc.on('end', () => resolve(Buffer.concat(buffers)));
+                doc.on('error', reject);
 
-            doc.on('end', async () => {
-                const pdfBuffer = Buffer.concat(buffers);
+                doc.fontSize(20).text('Certificate of Participation', { align: 'center' });
+                doc.moveDown();
+                doc.fontSize(14).text('This is to certify that', { align: 'center' });
+                doc.moveDown();
+                doc.fontSize(18).text(user.name, { align: 'center' });
+                doc.moveDown();
+                doc.fontSize(14).text('has successfully attended the event', { align: 'center' });
+                doc.moveDown();
+                doc.fontSize(16).text(event.title, { align: 'center' });
+                doc.moveDown();
+                doc.fontSize(12).text(`Date: ${new Date(event.date).toDateString()}`, { align: 'center' });
 
-                try {
-                    await transporter.sendMail({
-                        from: process.env.EMAIL_USER,
-                        to: user.email,
-                        subject: `Certificate - ${event.title}`,
-                        html: `
-                            <h2>Congratulations ${user.name}</h2>
-                            <p>You have successfully attended <b>${event.title}</b>.</p>
-                        `,
-                        attachments: [
-                            {
-                                filename: 'certificate.pdf',
-                                content: pdfBuffer
-                            }
-                        ]
-                    });
-                } catch (err) {
-                    console.log('Email failed:', err.message);
-                }
+                doc.end();
             });
 
-            doc.fontSize(20).text('Certificate of Participation', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(14).text('This is to certify that', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(18).text(user.name, { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(14).text('has successfully attended the event', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(16).text(event.title, { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(12).text(`Date: ${new Date(event.date).toDateString()}`, { align: 'center' });
+            try {
+                const html = `
+                    <h2>Congratulations ${user.name} 🎉</h2>
+                    <p>You have successfully attended <b>${event.title}</b>.</p>
+                    <p>Your certificate is attached below.</p>
+                    <br/>
+                    <p>We hope to see you again!</p>
+                `;
 
-            doc.end();
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: user.email,
+                    subject: `Certificate of Participation - ${event.title}`,
+                    html,
+                    text: html.replace(/<[^>]*>?/gm, ''),
+                    attachments: [
+                        {
+                            filename: `${event.title}-certificate.pdf`,
+                            content: pdfBuffer
+                        }
+                    ]
+                });
+
+            } catch (mailErr) {
+                console.log(`Email failed for ${user.email}:`, mailErr.message);
+            }
         }
 
         res.status(200).json({
-            message: 'Certificates are being generated and sent'
+            message: 'Certificates generated and emails sent successfully'
         });
 
     } catch (err) {
