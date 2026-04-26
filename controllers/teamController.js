@@ -11,8 +11,6 @@ const nodemailer = require('nodemailer');
 
 async function createTeam(req, res) {
     try {
-        // POST /api/events/:eventId/team
-
         const { eventId } = req.params;
         const userId = req.user.id;
         const { name } = req.body;
@@ -31,9 +29,7 @@ async function createTeam(req, res) {
         }
 
         if (!event.isTeamEvent) {
-            return res.status(400).json({
-                error: 'this event is not team based'
-            });
+            return res.status(400).json({ error: 'this event is not team based' });
         }
 
         const existingTeam = await teamModel.findOne({
@@ -57,7 +53,7 @@ async function createTeam(req, res) {
             }
         }
 
-        const isMatch = await teamModel.findOne({ name, eventId });
+        const isMatch = await teamModel.findOne({ name: name.trim(), eventId });
         if (isMatch) {
             return res.status(400).json({
                 error: 'team name already exists in this event'
@@ -82,12 +78,10 @@ async function createTeam(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-}
+};
 
 async function joinTeam(req, res) {
     try {
-        // POST /api/team/join
-
         const userId = req.user.id;
         const { teamCode } = req.body;
 
@@ -95,7 +89,10 @@ async function joinTeam(req, res) {
             return res.status(400).json({ error: 'teamCode is required' });
         }
 
-        const team = await teamModel.findOne({ teamCode: teamCode.trim().toUpperCase() });
+        const team = await teamModel.findOne({
+            teamCode: teamCode.trim().toUpperCase()
+        });
+
         if (!team) {
             return res.status(404).json({ error: 'team not found' });
         }
@@ -141,7 +138,7 @@ async function joinTeam(req, res) {
 
         const updatedTeam = await teamModel.findByIdAndUpdate(
             team._id,
-            { $push: { members: userId } },
+            { $addToSet: { members: userId } },
             { new: true }
         );
 
@@ -209,7 +206,7 @@ async function removeMember(req, res) {
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
-}
+};
 
 async function getMyTeam(req, res) {
     try {
@@ -218,7 +215,8 @@ async function getMyTeam(req, res) {
         const team = await teamModel
             .findOne({ members: userId })
             .populate('members', 'name email')
-            .populate('leaderId', 'name');
+            .populate('leaderId', 'name')
+            .lean();
 
         if (!team) {
             return res.status(200).json({
@@ -232,7 +230,7 @@ async function getMyTeam(req, res) {
 
     } catch (err) {
         res.status(500).json({ error: err.message });
-    };
+    }
 };
 
 module.exports = { removeMember, createTeam, joinTeam, getMyTeam };
