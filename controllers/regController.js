@@ -1,17 +1,18 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-const { userModel, eventModel, teamModel, regModel } = require('../models/model.js');
-const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
-const { authMiddleware } = require('../middlewares/authMiddleware.js');
-const { json } = require('express');
-const { Schema, default: mongoose } = require('mongoose');
-const QRCode = require('qrcode');
-const { Parser } = require('json2csv');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const PDFDocument = require('pdfkit');
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import { userModel, eventModel, teamModel, regModel } from '../models/model.js';
+import { adminMiddleware } from '../middlewares/adminMiddleware.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import express from 'express';
+import mongoose from 'mongoose';
+import QRCode from 'qrcode';
+import { Parser } from 'json2csv';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import PDFDocument from 'pdfkit';
 
+dotenv.config();
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -21,24 +22,16 @@ const transporter = nodemailer.createTransport({
     }
 })
 
-async function sendMail(to, subject, text) {
+export async function sendMail(to, subject, text) {
     await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to,
         subject,
         text
     })
-}
+};
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-async function regForEvent(req, res) {
+export async function regForEvent(req, res) {
     try {
         const eventId = req.params.id;
         const userId = req.user.id;
@@ -109,7 +102,7 @@ async function regForEvent(req, res) {
     }
 }
 
-async function myReg(req, res) {
+export async function myReg(req, res) {
     try {
         const userId = req.user.id;
 
@@ -149,7 +142,7 @@ async function myReg(req, res) {
     }
 }
 
-async function updateRegStatus(req, res) {
+export async function updateRegStatus(req, res) {
     try {
         const { id: regId } = req.params;
         const { status } = req.body;
@@ -252,7 +245,7 @@ async function updateRegStatus(req, res) {
 }
 
 
-async function getAllRegistrations(req, res) {
+export async function getAllRegistrations(req, res) {
     try {
         const { status, eventId, attended } = req.query;
 
@@ -325,7 +318,7 @@ async function getAllRegistrations(req, res) {
     }
 };
 
-async function scanAttendance(req, res) {
+export async function scanAttendance(req, res) {
     try {
         const { qrToken } = req.body;
 
@@ -388,7 +381,7 @@ async function scanAttendance(req, res) {
     }
 };
 
-async function exportRegistrationsCSV(req, res) {
+export async function exportRegistrationsCSV(req, res) {
     try {
         const { status, eventId, attended } = req.query;
 
@@ -460,7 +453,7 @@ async function exportRegistrationsCSV(req, res) {
     }
 };
 
-async function generateCertificates(req, res) {
+export async function generateCertificates(req, res) {
     try {
         const { eventId } = req.params;
 
@@ -544,7 +537,7 @@ async function generateCertificates(req, res) {
     }
 }
 
-async function eventAnalytics(req, res) {
+export async function eventAnalytics(req, res) {
     try {
         const { eventId } = req.params;
 
@@ -640,5 +633,3 @@ async function eventAnalytics(req, res) {
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 };
-
-module.exports = { updateRegStatus, regForEvent, myReg, getAllRegistrations, updateRegStatus, scanAttendance, exportRegistrationsCSV, generateCertificates, eventAnalytics }

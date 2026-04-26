@@ -1,13 +1,16 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cookieParser = require('cookie-parser');
-require('dotenv').config();
+import express from 'express';
+import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 
-const authRoutes = require('./routes/authRoutes.js');
-const eventRoutes = require('./routes/eventRoutes.js');
-const regRoutes = require('./routes/regRoutes.js');
-const attendanceRoutes = require('./routes/attendanceRoutes.js');
-const { connectDB } = require('./config/db.js')
+import authRoutes from './routes/authRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
+import regRoutes from './routes/regRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
+import teamRoutes from './routes/teamRoutes.js';
+import { connectDB } from './config/db.js';
+
+dotenv.config();
 
 const app = express();
 
@@ -22,11 +25,9 @@ app.use('/api', regRoutes);
 app.use('/api', attendanceRoutes);
 app.use('/api', teamRoutes);
 
-
 app.get('/', (req, res) => {
   res.send('Event Management API is running...');
 });
-
 
 app.use((err, req, res, next) => {
   res.status(500).json({

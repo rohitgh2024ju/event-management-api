@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
-const adminMiddleware = (req, res, next) => {
+export const adminMiddleware = (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -12,4 +12,3 @@ const adminMiddleware = (req, res, next) => {
     next();
 };
 
-module.exports = { adminMiddleware };

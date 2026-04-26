@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // USER
 const userSchema = new mongoose.Schema({
@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const userModel = mongoose.model('user', userSchema);
+export const userModel = mongoose.model('user', userSchema);
 
 // TEAM
 const teamSchema = new mongoose.Schema({
@@ -36,7 +36,7 @@ const teamSchema = new mongoose.Schema({
 
 teamSchema.index({ name: 1, eventId: 1 }, { unique: true }); // indexing
 
-const teamModel = mongoose.model('team', teamSchema);
+export const teamModel = mongoose.model('team', teamSchema);
 
 // EVENT
 const eventSchema = new mongoose.Schema({
@@ -50,7 +50,7 @@ const eventSchema = new mongoose.Schema({
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }
 }, { timestamps: true });
 
-const eventModel = mongoose.model('event', eventSchema);
+export const eventModel = mongoose.model('event', eventSchema);
 
 // REGISTRATION
 const regSchema = new mongoose.Schema({
@@ -80,12 +80,5 @@ const regSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const regModel = mongoose.model('reg', regSchema);
+export const regModel = mongoose.model('reg', regSchema);
 
-
-module.exports = {
-    userModel,
-    eventModel,
-    teamModel,
-    regModel
-};

@@ -1,12 +1,13 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-const { userModel, eventModel, teamModel, regModel } = require('../models/model.js');
-const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
-const { authMiddleware } = require('../middlewares/authMiddleware.js')
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import { userModel, eventModel, teamModel, regModel } from '../models/model.js';
+import { adminMiddleware } from '../middlewares/adminMiddleware.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
 
+dotenv.config();
 
-async function createEvent(req, res) {
+export async function createEvent(req, res) {
     try {
         let {
             title,
@@ -98,7 +99,7 @@ async function createEvent(req, res) {
     }
 }
 
-async function getAllEvents(req, res) {
+export async function getAllEvents(req, res) {
     try {
         const allEvents = await eventModel.find({}).sort({ date: 1 }).lean();
 
@@ -112,7 +113,7 @@ async function getAllEvents(req, res) {
     }
 }
 
-async function getEventById(req, res) {
+export async function getEventById(req, res) {
     try {
         const { id } = req.params;
 
@@ -132,7 +133,7 @@ async function getEventById(req, res) {
     }
 }
 
-async function updateEvent(req, res) {
+export async function updateEvent(req, res) {
     try {
         const { id } = req.params;
 
@@ -236,7 +237,7 @@ async function updateEvent(req, res) {
     }
 };
 
-async function deleteEvent(req, res) {
+export async function deleteEvent(req, res) {
     try {
         const { id } = req.params;
 
@@ -258,5 +259,3 @@ async function deleteEvent(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-
-module.exports = { createEvent, getAllEvents, getEventById, deleteEvent, updateEvent }

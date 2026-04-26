@@ -1,16 +1,17 @@
-const express = require('express');
+import express from 'express';
 
-const {
+import {
     regForEvent,
     myReg,
     getAllRegistrations,
     updateRegStatus,
     exportRegistrationsCSV,
-    generateCertificates
-} = require('../controllers/regController.js');
+    generateCertificates,
+    eventAnalytics
+} from '../controllers/regController.js';
 
-const { authMiddleware } = require('../middlewares/authMiddleware.js');
-const { adminMiddleware } = require('../middlewares/adminMiddleware.js');
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { adminMiddleware } from '../middlewares/adminMiddleware.js';
 
 const router = express.Router();
 
@@ -25,8 +26,7 @@ router.post('/admin/events/:eventId/certificates', authMiddleware, adminMiddlewa
 router.get('/admin/events/:eventId/analytics', authMiddleware, adminMiddleware, eventAnalytics);
 
 
-module.exports = router;
-
+export default router
 /*/api/events/:id/register
 /api/my/registrations
 /api/admin/registrations

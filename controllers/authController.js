@@ -1,13 +1,15 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-const { userModel, eventModel, teamModel, regModel } = require('../models/model.js');
-const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
-const { authMiddleware } = require('../middlewares/authMiddleware.js')
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import { userModel, eventModel, teamModel, regModel } from '../models/model.js';
+import { adminMiddleware } from '../middlewares/adminMiddleware.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
 
 dotenv.config();
 
-async function signup(req, res) {
+dotenv.config();
+
+export async function signup(req, res) {
     try {
         let { name, email, password } = req.body;
 
@@ -58,7 +60,7 @@ async function signup(req, res) {
     }
 }
 
-async function login(req, res) {
+export async function login(req, res) {
     try {
         let { email, password } = req.body;
 
@@ -112,7 +114,7 @@ async function login(req, res) {
     }
 }
 
-async function logout(req, res) {
+export async function logout(req, res) {
     try {
         res.clearCookie('jwtToken', {
             httpOnly: true,
@@ -127,7 +129,7 @@ async function logout(req, res) {
     }
 };
 
-async function getMe(req, res) {
+export async function getMe(req, res) {
     try {
         if (!req.user) {
             return res.status(401).json({
@@ -146,4 +148,3 @@ async function getMe(req, res) {
     }
 };
 
-module.exports = { getMe, login, logout, signup };

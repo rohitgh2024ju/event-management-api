@@ -1,15 +1,16 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-const { userModel, eventModel, teamModel, regModel } = require('../models/model.js');
-const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
-const { authMiddleware } = require('../middlewares/authMiddleware.js');
-const { json } = require('express');
-const { Schema, default: mongoose } = require('mongoose');
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import { userModel, eventModel, teamModel, regModel } from '../models/model.js';
+import { adminMiddleware } from '../middlewares/adminMiddleware.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import express from 'express';
+import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
 
-const nodemailer = require('nodemailer');
+dotenv.config();
 
-async function createTeam(req, res) {
+export async function createTeam(req, res) {
     try {
         const { eventId } = req.params;
         const userId = req.user.id;
@@ -80,7 +81,7 @@ async function createTeam(req, res) {
     }
 };
 
-async function joinTeam(req, res) {
+export async function joinTeam(req, res) {
     try {
         const userId = req.user.id;
         const { teamCode } = req.body;
@@ -152,7 +153,7 @@ async function joinTeam(req, res) {
     }
 };
 
-async function removeMember(req, res) {
+export async function removeMember(req, res) {
     try {
         const { teamId, userId: targetUserId } = req.params;
         const requesterId = req.user.id;
@@ -208,7 +209,7 @@ async function removeMember(req, res) {
     }
 };
 
-async function getMyTeam(req, res) {
+export async function getMyTeam(req, res) {
     try {
         const userId = req.user.id;
 
@@ -233,4 +234,3 @@ async function getMyTeam(req, res) {
     }
 };
 
-module.exports = { removeMember, createTeam, joinTeam, getMyTeam };
