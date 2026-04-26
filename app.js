@@ -20,6 +20,7 @@ app.use('/api', authRoutes);
 app.use('/api', eventRoutes);
 app.use('/api', regRoutes);
 app.use('/api', attendanceRoutes);
+app.use('/api', teamRoutes);
 
 
 app.get('/', (req, res) => {

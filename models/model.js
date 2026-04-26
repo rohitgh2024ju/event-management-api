@@ -14,9 +14,6 @@ const userSchema = new mongoose.Schema({
 
 const userModel = mongoose.model('user', userSchema);
 
-
-
-
 // TEAM
 const teamSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
