@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { userModel, eventModel, teamModel, regModel } from '../models/model.js';
 import { adminMiddleware } from '../middlewares/adminMiddleware.js';
