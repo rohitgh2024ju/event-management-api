@@ -10,3 +10,8 @@ router.post('/logout', authMiddleware, logout);
 router.get('/me', authMiddleware, getMe);
 
 module.exports = router;
+
+/*POST   /api/auth/signup 
+POST   /api/auth/login   
+POST   /api/auth/logout   
+GET    /api/auth/me */

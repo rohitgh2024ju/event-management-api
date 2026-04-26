@@ -5,9 +5,7 @@ const { userModel, eventModel, teamModel, regModel } = require('../models/model.
 const { adminMiddleware } = require('../middlewares/adminMiddleware.js')
 const { authMiddleware } = require('../middlewares/authMiddleware.js')
 
-
 dotenv.config();
-
 
 async function signup(req, res) {
     try {
@@ -34,7 +32,8 @@ async function signup(req, res) {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const salts = 10;
+        const hashedPassword = await bcrypt.hash(password, salts);
 
         const user = await userModel.create({
             name,
@@ -58,9 +57,6 @@ async function signup(req, res) {
         });
     }
 }
-
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 async function login(req, res) {
     try {
