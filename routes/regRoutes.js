@@ -22,6 +22,7 @@ router.get('/admin/registrations', authMiddleware, adminMiddleware, getAllRegist
 router.patch('/admin/registrations/:id', authMiddleware, adminMiddleware, updateRegStatus);
 router.get('/admin/registrations/export', authMiddleware, adminMiddleware, exportRegistrationsCSV);
 router.post('/admin/events/:eventId/certificates', authMiddleware, adminMiddleware, generateCertificates);
+router.get('/admin/events/:eventId/analytics', authMiddleware, adminMiddleware, eventAnalytics);
 
 
 module.exports = router;

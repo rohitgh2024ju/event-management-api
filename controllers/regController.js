@@ -523,4 +523,4 @@ async function eventAnalytics(req, res) {
     }
 }
 
-module.exports = { updateRegStatus, regForEvent, myReg, getAllRegistrations, updateRegStatus, scanAttendance, exportRegistrationsCSV, generateCertificates }
+module.exports = { updateRegStatus, regForEvent, myReg, getAllRegistrations, updateRegStatus, scanAttendance, exportRegistrationsCSV, generateCertificates, eventAnalytics }

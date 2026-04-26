@@ -19,6 +19,7 @@ router.get('/events/:id', authMiddleware, getEventById);
 router.patch('/events/:id', authMiddleware, adminMiddleware, updateEvent);
 router.delete('/events/:id', authMiddleware, adminMiddleware, deleteEvent);
 
+
 module.exports = router;
 
 /*POST   /api/events
