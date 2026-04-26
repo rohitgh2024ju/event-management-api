@@ -1,0 +1,531 @@
+{
+  "info": {
+    "_postman_id": "dae7f495-a26a-4b9f-b60f-18dbdfb60305",
+    "name": "event-management-api",
+    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50796989",
+    "_collection_link": "https://go.postman.co/collection/50796989-dae7f495-a26a-4b9f-b60f-18dbdfb60305?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "signup user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Rohit\",\r\n  \"email\": \"rohit@mail.com\",\r\n  \"password\": \"123456\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/signup",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Registers a new user with name, email and password. sample request body -\n\n{\n\nname: xyz,\n\nemail: xyz@gmail.com,\n\npassword: 123\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "login user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"rohit@mail.com\",\r\n  \"password\": \"123456\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "login a user with email and password. smaple request body -\n\n{\n\nemail: xyz@gmail.com,\n\npassword: 123\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "current user",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Rohit\",\r\n  \"email\": \"rohit@mail.com\",\r\n  \"password\": \"123456\"\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "endpoint for fetching current user info."
+          },
+          "response": []
+        },
+        {
+          "name": "logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/autg/logout",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "autg",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "create event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"title\": \"Hackathon\",\r\n  \"description\": \"AI Hackathon\",\r\n  \"date\": \"2026-05-01\",\r\n  \"maxParticipants\": 100\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/events",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "description": "endpoint for creating a event. sample request body-\n\n{\n\ntitle: abc,\n\ndescription: abc,\n\ndate: 00-00-00,\n\nmaxParticipants: 10,\n\nmaxTeams: 10,\n\nisTeamEvent: false,\n\nmaxTeamSize: 3\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "get all events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/events",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "description": "endpoint for fetching all events."
+          },
+          "response": []
+        },
+        {
+          "name": "get event by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "end point for fetching event by event ID."
+          },
+          "response": []
+        },
+        {
+          "name": "update event",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/events/123abc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "events",
+                "123abc"
+              ]
+            },
+            "description": "endpoint for updating an event from event ID"
+          },
+          "response": []
+        },
+        {
+          "name": "delete event",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/events/123abc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "events",
+                "123abc"
+              ]
+            },
+            "description": "endpoint for delete an event by event ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Registration",
+      "item": [
+        {
+          "name": "register an event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/events/69ee21651bf2a582cbc43ae1/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "events",
+                "69ee21651bf2a582cbc43ae1",
+                "register"
+              ]
+            },
+            "description": "endpoint to register to an event with event Id as path parameter"
+          },
+          "response": []
+        },
+        {
+          "name": "my registrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/my/registrations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "my",
+                "registrations"
+              ]
+            },
+            "description": "endpoint to fetch user registrations."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "get all registrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/my/registrations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "my",
+                "registrations"
+              ]
+            },
+            "description": "endpoint to fetch all registreations with optional path query like status, eventId, attended."
+          },
+          "response": []
+        },
+        {
+          "name": "approve/reject status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/admin/registrations/123abc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "admin",
+                "registrations",
+                "123abc"
+              ]
+            },
+            "description": "endpoint to approve/reject user to participate in an event with registration id path parameter and sample request body-\n\n{\n\nstatus: 'approved'\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "export csv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/admin/registrations/export",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "admin",
+                "registrations",
+                "export"
+              ]
+            },
+            "description": "endpoint to export csv format of all registrations with optional path query like status, eventId, attended."
+          },
+          "response": []
+        },
+        {
+          "name": "generate Certificates",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/admin/events/:eventId/certificates",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "admin",
+                "events",
+                ":eventId",
+                "certificates"
+              ],
+              "variable": [
+                {
+                  "key": "eventId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "endpoint to distribute certificates through email."
+          },
+          "response": []
+        },
+        {
+          "name": "event analytics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Successful POST request\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\t\"name\": \"Add your name in the body\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/events/123abc/analytics",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "events",
+                "123abc",
+                "analytics"
+              ]
+            },
+            "description": "endpoint for analytics for a particular event."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "scan attendance",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/attendance/scan",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "attendance",
+                "scan"
+              ]
+            },
+            "description": "endpoint to approve attendance by admin with qr token/ qr images."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "teams",
+      "item": [
+        {
+          "name": "create team",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/events/abc123/team",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "events",
+                "abc123",
+                "team"
+              ]
+            },
+            "description": "endpoint to create a team. sample request body-\n\n{\n\nname: abc\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "join team",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/team/join",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "team",
+                "join"
+              ]
+            },
+            "description": "endpoint to join a team via team code. sample request body-\n\n{\n\nteamCode: abcxyz\n\n}"
+          },
+          "response": []
+        },
+        {
+          "name": "my team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "endpoint to fetch team details."
+          },
+          "response": []
+        },
+        {
+          "name": "remove member",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "endpoint to remove team member."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
