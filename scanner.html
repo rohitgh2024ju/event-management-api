@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Scanner</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- QR Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md p-4">
+
+        <!-- Title -->
+        <h1 class="text-xl font-semibold text-center mb-4">
+            Event Check-In
+        </h1>
+
+        <!-- Scanner -->
+        <div class="bg-gray-800 rounded-xl p-3 shadow-lg">
+            <div id="reader" class="w-full rounded-md overflow-hidden"></div>
+        </div>
+
+        <!-- Result -->
+        <div id="result" class="mt-4 text-center text-lg font-medium">
+            Ready to scan...
+        </div>
+
+        <!-- Restart Button -->
+        <button onclick="restartScanner()"
+            class="mt-4 w-full bg-blue-500 hover:bg-blue-600 py-2 rounded-lg font-medium">
+            Scan Next
+        </button>
+
+    </div>
+
+    <script>
+        const API_URL = "https://event-management-api-95f8.onrender.com/api/admin/attendance/scan";
+
+        let html5QrCode;
+        let scanning = true;
+
+        function setResult(message, type = "info") {
+            const resultEl = document.getElementById("result");
+
+            resultEl.innerHTML = message;
+
+            resultEl.className = `mt-4 text-lg font-medium text-center ${type === "success"
+                ? "text-green-400"
+                : type === "error"
+                    ? "text-red-400"
+                    : "text-gray-300"
+                }`;
+        }
+
+        async function startScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            await html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                onScanSuccess
+            );
+        }
+
+        async function onScanSuccess(decodedText) {
+            if (!scanning) return;
+
+            scanning = false;
+
+            await html5QrCode.stop();
+
+            console.log("Scanned:", decodedText);
+            setResult("Processing...");
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include", 
+                    body: JSON.stringify({ qrToken: decodedText })
+                });
+
+                const data = await res.json();
+                console.log(data);
+
+                if (!res.ok) {
+                    throw data;
+                }
+
+                if (data.error) {
+                    setResult(data.error, "error");
+                } else {
+                    setResult(data.message, "success");
+                }
+
+            } catch (err) {
+                console.error(err);
+                setResult(err.error || "Server error", "error");
+            }
+
+            setTimeout(restartScanner, 2000);
+        }
+
+        async function restartScanner() {
+            try {
+                if (html5QrCode) {
+                    await html5QrCode.clear(); 
+                }
+            } catch (err) {
+                console.warn("Clear error:", err);
+            }
+
+            scanning = true;
+            setResult("Ready to scan...");
+
+            startScanner();
+        }
+
+        startScanner();
+    </script>
+
+</body>
+
+</html>

@@ -254,7 +254,6 @@ export async function updateRegStatus(req, res) {
     }
 }
 
-
 export async function getAllRegistrations(req, res) {
     try {
         const { status, eventId, attended } = req.query;
@@ -327,8 +326,6 @@ export async function getAllRegistrations(req, res) {
         });
     }
 };
-
-
 
 export async function exportRegistrationsCSV(req, res) {
     try {
@@ -635,30 +632,3 @@ export async function scanAttendance(req, res) {
         res.status(500).json({ error: err.message });
     }
 };
-
-export async function handleScan(req, res) {
-    try {
-        const scannerKey = req.headers['x-scanner-key'];
-
-        if (!scannerKey || scannerKey !== process.env.SCANNER_SECRET) {
-            return res.status(403).json({
-                error: 'Missing or invalid scanner key'
-            });
-        }
-
-        const { qrToken } = req.body;
-
-        if (!qrToken) {
-            return res.status(400).json({
-                error: 'QR token is required'
-            });
-        }
-
-        const result = await processScan(qrToken);
-
-        return res.status(result.status).json(result);
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-}
