@@ -359,4 +359,3 @@ export async function getMyTeam(req, res) {
         res.status(500).json({ error: err.message });
     }
 };
-

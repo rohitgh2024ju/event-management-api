@@ -328,94 +328,7 @@ export async function getAllRegistrations(req, res) {
     }
 };
 
-export async function scanAttendance(req, res) {
-    try {
-        const { qrToken } = req.body;
 
-        if (!qrToken) {
-            return res.status(400).json({ error: 'QR token required' });
-        }
-
-        const userReg = await regModel
-            .findOne({ qrToken })
-            .populate('userId', 'name email')
-            .populate('eventId', 'title date')
-            .lean();
-
-        if (!userReg) {
-            return res.status(400).json({ error: 'Invalid QR' });
-        }
-
-        if (userReg.status !== 'approved') {
-            return res.status(400).json({
-                error: 'User not approved for this event'
-            });
-        }
-
-        if (userReg.attended) {
-            return res.status(200).json({
-                message: 'Already marked attended'
-            });
-        }
-
-        const updatedUserReg = await regModel.findOneAndUpdate(
-            { qrToken },
-            { attended: true },
-            { new: true }
-        ).lean();
-
-        try {
-            const user = userReg.userId;
-            const event = userReg.eventId;
-
-            if (user && event) {
-                const html = `
-                    <h2>Attendance Confirmed</h2>
-                    <p>Hello ${user.name},</p>
-                    <p>Your attendance for <b>${event.title}</b> has been successfully recorded.</p>
-                    <p>Date: ${new Date(event.date).toDateString()}</p>
-                    <br/>
-                    <p>Thank you for participating!</p>
-                `;
-
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject: `Attendance Confirmed - ${event.title}`,
-                    html,
-                    text: html.replace(/<[^>]*>?/gm, '')
-                });
-            }
-        } catch (mailErr) {
-            console.log('Attendance email failed:', mailErr.message);
-        }
-
-        res.status(200).json({
-            message: 'Attendance marked successfully',
-            registration: {
-                id: updatedUserReg._id,
-                user: userReg.userId
-                    ? {
-                        id: userReg.userId._id,
-                        name: userReg.userId.name,
-                        email: userReg.userId.email
-                    }
-                    : null,
-                event: userReg.eventId
-                    ? {
-                        id: userReg.eventId._id,
-                        title: userReg.eventId.title,
-                        date: userReg.eventId.date
-                    }
-                    : null,
-                attended: updatedUserReg.attended
-            }
-        });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-}
 
 export async function exportRegistrationsCSV(req, res) {
     try {
@@ -676,3 +589,76 @@ export async function eventAnalytics(req, res) {
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
+export async function processScan(qrToken) {
+    const userReg = await regModel
+        .findOne({ qrToken })
+        .populate('userId', 'name email')
+        .populate('eventId', 'title date');
+
+    if (!userReg) {
+        return { status: 400, error: 'Invalid QR' };
+    }
+
+    if (userReg.status !== 'approved') {
+        return { status: 400, error: 'User not approved' };
+    }
+
+    if (userReg.attended) {
+        return { status: 200, message: 'Already marked attended' };
+    }
+
+    userReg.attended = true;
+    await userReg.save();
+
+    return {
+        status: 200,
+        message: 'Attendance marked successfully',
+        user: userReg.userId,
+        event: userReg.eventId
+    };
+};
+
+export async function scanAttendance(req, res) {
+    try {
+        const { qrToken } = req.body;
+
+        if (!qrToken) {
+            return res.status(400).json({ error: 'QR token required' });
+        }
+
+        const result = await processScan(qrToken);
+
+        return res.status(result.status).json(result);
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export async function handleScan(req, res) {
+    try {
+        const scannerKey = req.headers['x-scanner-key'];
+
+        if (!scannerKey || scannerKey !== process.env.SCANNER_SECRET) {
+            return res.status(403).json({
+                error: 'Missing or invalid scanner key'
+            });
+        }
+
+        const { qrToken } = req.body;
+
+        if (!qrToken) {
+            return res.status(400).json({
+                error: 'QR token is required'
+            });
+        }
+
+        const result = await processScan(qrToken);
+
+        return res.status(result.status).json(result);
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}

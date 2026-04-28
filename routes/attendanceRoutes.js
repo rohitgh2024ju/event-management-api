@@ -1,12 +1,13 @@
 import express from 'express';
-import { scanAttendance } from '../controllers/regController.js';
+import { scanAttendance, handleScan } from '../controllers/regController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../middlewares/adminMiddleware.js';
 
 const router = express.Router();
 
-router.post('/attendance/scan', authMiddleware, adminMiddleware, scanAttendance);
+router.post('admin/attendance/scan', authMiddleware, adminMiddleware, scanAttendance);
+router.post('/admin/attendance/scan-public', handleScan);
 
 
-export default router
+export default router;
 // POST /api/attendance/scan
