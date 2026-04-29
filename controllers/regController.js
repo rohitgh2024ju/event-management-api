@@ -15,12 +15,16 @@ import PDFDocument from 'pdfkit';
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    pool: true
+    tls: {
+        rejectUnauthorized: false
+    }
 });
 
 export function sendMail(to, subject, html, attachments = []) {
@@ -195,45 +199,35 @@ export async function updateRegStatus(req, res) {
         reg.status = status;
         await reg.save();
 
-        try {
-            const user = await userModel.findById(reg.userId);
-
+        userModel.findById(reg.userId).then(user => {
             if (user) {
-                const subject =
-                    status === 'approved'
-                        ? `Registration Approved - ${event.title}`
-                        : `Registration Rejected - ${event.title}`;
+                const isApproved = status === 'approved';
 
-                const html =
-                    status === 'approved'
-                        ? `
-                        <h2>You're Approved!</h2>
-                        <p>Hello ${user.name},</p>
-                        <p>Your registration for <b>${event.title}</b> has been approved.</p>
-                        <p>Please keep your QR code ready for attendance.</p>
-                        <br/>
-                        <p>See you at the event!</p>
-                        `
-                        : `
-                        <h2>Registration Update</h2>
-                        <p>Hello ${user.name},</p>
-                        <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
-                        <p>If you believe this was a mistake, please contact the organizers.</p>
-                        <br/>
-                        <p>Thank you for your interest.</p>
-                        `;
+                const subject = isApproved
+                    ? `Registration Approved - ${event.title}`
+                    : `Registration Rejected - ${event.title}`;
 
-                await transporter.sendMail({
+                const html = isApproved
+                    ? `<h2>You're Approved!</h2>
+               <p>Hello ${user.name},</p>
+               <p>Your registration for <b>${event.title}</b> has been approved.</p>
+               <p>Please keep your QR code ready for attendance.</p>
+               <br/><p>See you at the event!</p>`
+                    : `<h2>Registration Update</h2>
+               <p>Hello ${user.name},</p>
+               <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
+               <p>If you believe this was a mistake, please contact the organizers.</p>
+               <br/><p>Thank you for your interest.</p>`;
+
+                transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: user.email,
                     subject,
                     html,
                     text: html.replace(/<[^>]*>?/gm, '')
-                });
+                }).catch(mailErr => console.log('Background Email failed:', mailErr.message));
             }
-        } catch (mailErr) {
-            console.log('Email failed:', mailErr.message);
-        }
+        }).catch(err => console.log('Background User lookup failed:', err.message));
 
         res.status(200).json({
             message: 'Status updated successfully',
@@ -246,7 +240,7 @@ export async function updateRegStatus(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-}
+};
 
 export async function getAllRegistrations(req, res) {
     try {
@@ -420,69 +414,57 @@ export async function generateCertificates(req, res) {
             });
         }
 
-        for (const reg of regs) {
-            const user = reg.userId;
-            if (!user) continue;
-
-            const pdfBuffer = await new Promise((resolve, reject) => {
-                const doc = new PDFDocument();
-                const buffers = [];
-
-                doc.on('data', chunk => buffers.push(chunk));
-                doc.on('end', () => resolve(Buffer.concat(buffers)));
-                doc.on('error', reject);
-
-                doc.fontSize(20).text('Certificate of Participation', { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(14).text('This is to certify that', { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(18).text(user.name, { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(14).text('has successfully attended the event', { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(16).text(event.title, { align: 'center' });
-                doc.moveDown();
-                doc.fontSize(12).text(`Date: ${new Date(event.date).toDateString()}`, { align: 'center' });
-
-                doc.end();
-            });
-
-            try {
-                const html = `
-                    <h2>Congratulations ${user.name} 🎉</h2>
-                    <p>You have successfully attended <b>${event.title}</b>.</p>
-                    <p>Your certificate is attached below.</p>
-                    <br/>
-                    <p>We hope to see you again!</p>
-                `;
-
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject: `Certificate of Participation - ${event.title}`,
-                    html,
-                    text: html.replace(/<[^>]*>?/gm, ''),
-                    attachments: [
-                        {
-                            filename: `${event.title}-certificate.pdf`,
-                            content: pdfBuffer
-                        }
-                    ]
-                });
-
-            } catch (mailErr) {
-                console.log(`Email failed for ${user.email}:`, mailErr.message);
-            }
-        }
-
-        res.status(200).json({
-            message: 'Certificates generated and emails sent successfully'
+        res.status(202).json({
+            message: `Certificate generation started for ${regs.length} users. Emails will be sent in the background.`
         });
 
+        (async () => {
+            console.log(`Starting background certificate generation for: ${event.title}`);
+
+            for (const reg of regs) {
+                const user = reg.userId;
+                if (!user || !user.email) continue;
+
+                try {
+                    const pdfBuffer = await new Promise((resolve, reject) => {
+                        const doc = new PDFDocument();
+                        const buffers = [];
+                        doc.on('data', chunk => buffers.push(chunk));
+                        doc.on('end', () => resolve(Buffer.concat(buffers)));
+                        doc.on('error', reject);
+
+                        // Design (Simplified)
+                        doc.fontSize(20).text('Certificate of Participation', { align: 'center' });
+                        doc.moveDown().fontSize(18).text(user.name, { align: 'center' });
+                        doc.moveDown().fontSize(16).text(event.title, { align: 'center' });
+                        doc.end();
+                    });
+
+                    await transporter.sendMail({
+                        from: process.env.EMAIL_USER,
+                        to: user.email,
+                        subject: `Certificate of Participation - ${event.title}`,
+                        html: `<p>Hello ${user.name}, your certificate is attached!</p>`,
+                        attachments: [{
+                            filename: `${event.title}-certificate.pdf`,
+                            content: pdfBuffer
+                        }]
+                    });
+
+                    console.log(`Certificate sent to: ${user.email}`);
+                } catch (err) {
+                    console.error(`Failed for ${user.email}:`, err.message);
+                }
+            }
+            console.log("All background certificates processed.");
+        })();
+
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        if (!res.headersSent) {
+            res.status(500).json({ error: err.message });
+        }
     }
-}
+};
 
 export async function eventAnalytics(req, res) {
     try {
