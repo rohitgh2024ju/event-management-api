@@ -6,10 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Scanner</title>
 
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- QR Scanner -->
     <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 
@@ -17,22 +15,19 @@
 
     <div class="w-full max-w-md p-4">
 
-        <!-- Title -->
         <h1 class="text-xl font-semibold text-center mb-4">
             Event Check-In
         </h1>
 
-        <!-- Scanner -->
         <div class="bg-gray-800 rounded-xl p-3 shadow-lg">
             <div id="reader" class="w-full rounded-md overflow-hidden"></div>
         </div>
 
-        <!-- Result -->
         <div id="result" class="mt-4 text-center text-lg font-medium">
             Ready to scan...
         </div>
 
-        <!-- Restart Button -->
+
         <button onclick="restartScanner()"
             class="mt-4 w-full bg-blue-500 hover:bg-blue-600 py-2 rounded-lg font-medium">
             Scan Next
