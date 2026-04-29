@@ -75,49 +75,36 @@ export async function regForEvent(req, res) {
             status: 'pending'
         });
 
-        try {
-            const user = await userModel.findById(userId);
-
+        userModel.findById(userId).then(user => {
             if (user) {
-                await transporter.sendMail({
+                transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: user.email,
                     subject: `Registration Successful - ${findEvent.title}`,
-                    html: `
-                        <h2>Registration Successful</h2>
-                        <p>Hello ${user.name},</p>
-                        <p>You have successfully registered for <b>${findEvent.title}</b>.</p>
-                        <p>Status: Pending Approval</p>
-                        <p>Your QR code is attached below.</p>
-                        <br/>
-                        <p>Thank you!</p>
-                    `,
-                    attachments: [
-                        {
-                            filename: 'qr.png',
-                            content: qrImage.split("base64,")[1],
-                            encoding: 'base64'
-                        }
-                    ]
-                });
-
-                res.status(201).json({
-                    message: 'Registration successful',
-                    registration: {
-                        id: regUser._id,
-                        status: regUser.status
-                    },
-                    qrToken,
-                    qrImage
-                });
+                    html: `<h2>Registration Successful</h2><p>Hello ${user.name}...</p>`,
+                    attachments: [{
+                        filename: 'qr.png',
+                        content: qrImage.split("base64,")[1],
+                        encoding: 'base64'
+                    }]
+                }).catch(mailErr => console.log("Background Email failed:", mailErr.message));
             }
-        } catch (mailErr) {
-            console.log("Email failed:", mailErr.message);
-        }
+        }).catch(err => console.log("Background User lookup failed:", err.message));
 
+        return res.status(201).json({
+            message: 'Registration successful',
+            registration: {
+                id: regUser._id,
+                status: regUser.status
+            },
+            qrToken,
+            qrImage
+        });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        if (!res.headersSent) {
+            return res.status(500).json({ error: err.message });
+        }
     }
 };
 
