@@ -5,7 +5,7 @@ import { adminMiddleware } from '../middlewares/adminMiddleware.js';
 
 const router = express.Router();
 
-router.post('admin/attendance/scan', authMiddleware, adminMiddleware, scanAttendance);
+router.post('/admin/attendance/scan', authMiddleware, adminMiddleware, scanAttendance);
 
 export default router;
 // POST /api/attendance/scan
