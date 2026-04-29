@@ -19,18 +19,23 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
-})
+    },
+    pool: true
+});
 
-export async function sendMail(to, subject, text) {
-    await transporter.sendMail({
+export function sendMail(to, subject, html, attachments = []) {
+    transporter.sendMail({
         from: process.env.EMAIL_USER,
         to,
         subject,
-        text
-    })
+        html,
+        attachments
+    }).then(info => {
+        console.log(`Email sent to ${to}: ${info.messageId}`);
+    }).catch(err => {
+        console.error(`Mail Error for ${to}:`, err.message);
+    });
 };
-
 export async function regForEvent(req, res) {
     try {
         const eventId = req.params.id;
