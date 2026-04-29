@@ -14,33 +14,37 @@ import PDFDocument from 'pdfkit';
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
-    dnsV6: false
-});
+export async function sender(to, subject, html, attachments = []) {
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                from: 'onboarding@resend.dev',
+                to,
+                subject,
+                html,
+                attachments: attachments.map(att => ({
+                    filename: att.filename,
+                    content: att.content
+                }))
+            }),
+        });
 
-export function sendMail(to, subject, html, attachments = []) {
-    transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to,
-        subject,
-        html,
-        attachments
-    }).then(info => {
-        console.log(`Email sent to ${to}: ${info.messageId}`);
-    }).catch(err => {
-        console.error(`Mail Error for ${to}:`, err.message);
-    });
-};
+        const data = await response.json();
+        if (response.ok) {
+            console.log(`Email sent via API to ${to}:`, data.id);
+        } else {
+            console.error(`API Mail Error:`, data.message);
+        }
+    } catch (err) {
+        console.error(`Network Error in sender:`, err.message);
+    }
+}
+
 
 export async function regForEvent(req, res) {
     try {
@@ -82,17 +86,15 @@ export async function regForEvent(req, res) {
 
         userModel.findById(userId).then(user => {
             if (user) {
-                transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject: `Registration Successful - ${findEvent.title}`,
-                    html: `<h2>Registration Successful</h2><p>Hello ${user.name}...</p>`,
-                    attachments: [{
+                sender(
+                    user.email,
+                    `Registration Successful - ${findEvent.title}`,
+                    `<h2>Success!</h2><p>Hello ${user.name}, your registration is pending.</p>`,
+                    [{
                         filename: 'qr.png',
-                        content: qrImage.split("base64,")[1],
-                        encoding: 'base64'
+                        content: qrImage.split("base64,")[1] // Send the raw base64 data
                     }]
-                }).catch(mailErr => console.log("Background Email failed:", mailErr.message));
+                );
             }
         }).catch(err => console.log("Background User lookup failed:", err.message));
 
@@ -206,7 +208,7 @@ export async function updateRegStatus(req, res) {
 
                 const subject = isApproved
                     ? `Registration Approved - ${event.title}`
-                    : `Registration Rejected - ${event.title}`;
+                    : `Registration Update - ${event.title}`;
 
                 const html = isApproved
                     ? `<h2>You're Approved!</h2>
@@ -220,15 +222,9 @@ export async function updateRegStatus(req, res) {
                <p>If you believe this was a mistake, please contact the organizers.</p>
                <br/><p>Thank you for your interest.</p>`;
 
-                transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject,
-                    html,
-                    text: html.replace(/<[^>]*>?/gm, '')
-                }).catch(mailErr => console.log('Background Email failed:', mailErr.message));
+                sender(user.email, subject, html);
             }
-        }).catch(err => console.log('Background User lookup failed:', err.message));
+        }).catch(err)
 
         res.status(200).json({
             message: 'Status updated successfully',
@@ -243,78 +239,81 @@ export async function updateRegStatus(req, res) {
     }
 };
 
-export async function getAllRegistrations(req, res) {
+export async function generateCertificates(req, res) {
     try {
-        const { status, eventId, attended } = req.query;
+        const { eventId } = req.params;
 
-        const filter = {};
-
-        if (status !== undefined) {
-            if (!['pending', 'approved', 'rejected'].includes(status)) {
-                return res.status(400).json({
-                    error: 'Invalid status filter'
-                });
-            }
-            filter.status = status;
+        if (!mongoose.Types.ObjectId.isValid(eventId)) {
+            return res.status(400).json({ error: 'Invalid event ID' });
         }
 
-        if (attended !== undefined) {
-            if (!['true', 'false'].includes(attended)) {
-                return res.status(400).json({
-                    error: 'Invalid attended filter (true/false)'
-                });
-            }
-            filter.attended = attended === 'true';
-        }
-
-        if (eventId !== undefined) {
-            if (!mongoose.Types.ObjectId.isValid(eventId)) {
-                return res.status(400).json({
-                    error: 'Invalid event ID'
-                });
-            }
-            filter.eventId = eventId;
+        const event = await eventModel.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
         }
 
         const regs = await regModel
-            .find(filter)
-            .populate('userId', 'name email')
-            .populate('eventId', 'title date isTeamEvent')
-            .sort({ createdAt: -1 })
-            .lean();
+            .find({
+                eventId,
+                status: 'approved',
+                attended: true
+            })
+            .populate('userId', 'name email');
 
-        const formatted = regs.map(r => ({
-            id: r._id,
-            user: r.userId
-                ? {
-                    id: r.userId._id,
-                    name: r.userId.name,
-                    email: r.userId.email
-                }
-                : null,
-            event: r.eventId
-                ? {
-                    id: r.eventId._id,
-                    title: r.eventId.title,
-                    date: r.eventId.date,
-                    isTeamEvent: r.eventId.isTeamEvent
-                }
-                : null,
-            status: r.status,
-            attended: r.attended,
-            createdAt: r.createdAt
-        }));
-
-        res.status(200).json({
-            registrations: formatted
+        if (!regs.length) {
+            return res.status(200).json({
+                message: 'No eligible users for certificates'
+            });
+        }
+        res.status(202).json({
+            message: `Certificate generation started for ${regs.length} users.`
         });
+
+        (async () => {
+            console.log(`Starting background certificates for: ${event.title}`);
+
+            for (const reg of regs) {
+                const user = reg.userId;
+                if (!user || !user.email) continue;
+
+                try {
+                    const pdfBuffer = await new Promise((resolve, reject) => {
+                        const doc = new PDFDocument();
+                        const buffers = [];
+                        doc.on('data', chunk => buffers.push(chunk));
+                        doc.on('end', () => resolve(Buffer.concat(buffers)));
+                        doc.on('error', reject);
+
+                        doc.fontSize(25).text('Certificate of Participation', { align: 'center' });
+                        doc.moveDown();
+                        doc.fontSize(18).text(`This is to certify that ${user.name}`, { align: 'center' });
+                        doc.text(`has attended ${event.title}`, { align: 'center' });
+                        doc.end();
+                    });
+
+                    await sender(
+                        user.email,
+                        `Certificate: ${event.title}`,
+                        `<p>Congratulations ${user.name}! Your certificate is attached.</p>`,
+                        [{
+                            filename: `${event.title.replace(/\s+/g, '_')}_Certificate.pdf`,
+                            content: pdfBuffer.toString('base64') // Resend expects base64 content
+                        }]
+                    );
+
+                } catch (err) {
+                    console.error(`Certificate failed for ${user.email}:`, err.message);
+                }
+            }
+            console.log("Certificate batch complete.");
+        })();
 
     } catch (err) {
-        res.status(500).json({
-            error: err.message
-        });
+        if (!res.headersSent) {
+            res.status(500).json({ error: err.message });
+        }
     }
-};
+}
 
 export async function exportRegistrationsCSV(req, res) {
     try {
