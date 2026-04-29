@@ -37,92 +37,79 @@
 
     <script>
         const API_URL = "https://event-management-api-95f8.onrender.com/api/admin/attendance/scan";
-
         let html5QrCode;
-        let scanning = true;
+        let isProcessing = false; 
 
         function setResult(message, type = "info") {
             const resultEl = document.getElementById("result");
-
             resultEl.innerHTML = message;
-
-            resultEl.className = `mt-4 text-lg font-medium text-center ${type === "success"
-                ? "text-green-400"
-                : type === "error"
-                    ? "text-red-400"
-                    : "text-gray-300"
-                }`;
+            const colors = {
+                success: "text-green-400",
+                error: "text-red-400",
+                info: "text-gray-300"
+            };
+            resultEl.className = `mt-4 text-lg font-medium text-center ${colors[type] || colors.info}`;
         }
 
         async function startScanner() {
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
+            try {
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
 
-            await html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                onScanSuccess
-            );
+                if (!html5QrCode.isScanning) {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        onScanSuccess
+                    );
+                }
+            } catch (err) {
+                console.error("Scanner Start Error:", err);
+                setResult("Camera access denied", "error");
+            }
         }
 
         async function onScanSuccess(decodedText) {
-            if (!scanning) return;
+            if (isProcessing) return;
+            isProcessing = true;
 
-            scanning = false;
-
-            await html5QrCode.stop();
-
-            console.log("Scanned:", decodedText);
-            setResult("Processing...");
+            setResult("Processing..."); 
 
             try {
                 const res = await fetch(API_URL, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     credentials: "include", 
                     body: JSON.stringify({ qrToken: decodedText })
                 });
 
                 const data = await res.json();
-                console.log(data);
 
-                if (!res.ok) {
-                    throw data;
-                }
+                if (!res.ok) throw new Error(data.error || data.message || "Scan failed");
 
-                if (data.error) {
-                    setResult(data.error, "error");
-                } else {
-                    setResult(data.message, "success");
-                }
+                setResult(data.message || "Check-in Successful!", "success");
 
             } catch (err) {
-                console.error(err);
-                setResult(err.error || "Server error", "error");
+                setResult(err.message || "Server error", "error");
+            } finally {
+                setTimeout(() => {
+                    isProcessing = false;
+                    setResult("Ready to scan...");
+                }, 3000);
             }
-
-            setTimeout(restartScanner, 2000);
         }
 
         async function restartScanner() {
-            try {
-                if (html5QrCode) {
-                    await html5QrCode.clear(); 
-                }
-            } catch (err) {
-                console.warn("Clear error:", err);
+            if (html5QrCode && html5QrCode.isScanning) {
+                await html5QrCode.stop();
             }
-
-            scanning = true;
+            isProcessing = false;
             setResult("Ready to scan...");
-
             startScanner();
         }
 
-        startScanner();
+        window.addEventListener('DOMContentLoaded', startScanner);
     </script>
 
 </body>

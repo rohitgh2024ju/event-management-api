@@ -1,5 +1,5 @@
 import express from 'express';
-import { scanAttendance, handleScan } from '../controllers/regController.js';
+import { scanAttendance } from '../controllers/regController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../middlewares/adminMiddleware.js';
 

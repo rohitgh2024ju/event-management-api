@@ -9,6 +9,8 @@ import regRoutes from './routes/regRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import { connectDB } from './config/db.js';
+import cors from 'cors';
+
 
 dotenv.config();
 
