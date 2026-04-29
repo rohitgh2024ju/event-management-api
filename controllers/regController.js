@@ -16,6 +16,7 @@ dotenv.config();
 
 export async function sender(to, subject, html, attachments = []) {
     try {
+        console.log("Using Key starting with:", process.env.RESEND_API_KEY?.substring(0, 5));
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -208,27 +209,21 @@ export async function updateRegStatus(req, res) {
 
                 const subject = isApproved
                     ? `Registration Approved - ${event.title}`
-                    : `Registration Rejected - ${event.title}`;
+                    : `Registration Update - ${event.title}`;
 
                 const html = isApproved
                     ? `<h2>You're Approved!</h2>
-               <p>Hello ${user.name},</p>
-               <p>Your registration for <b>${event.title}</b> has been approved.</p>
-               <p>Please keep your QR code ready for attendance.</p>
-               <br/><p>See you at the event!</p>`
+                       <p>Hello ${user.name},</p>
+                       <p>Your registration for <b>${event.title}</b> has been approved.</p>
+                       <p>Please keep your QR code ready for attendance.</p>
+                       <br/><p>See you at the event!</p>`
                     : `<h2>Registration Update</h2>
-               <p>Hello ${user.name},</p>
-               <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
-               <p>If you believe this was a mistake, please contact the organizers.</p>
-               <br/><p>Thank you for your interest.</p>`;
+                       <p>Hello ${user.name},</p>
+                       <p>We regret to inform you that your registration for <b>${event.title}</b> has been rejected.</p>
+                       <p>If you believe this was a mistake, please contact the organizers.</p>
+                       <br/><p>Thank you for your interest.</p>`;
 
-                transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject,
-                    html,
-                    text: html.replace(/<[^>]*>?/gm, '')
-                }).catch(mailErr => console.log('Background Email failed:', mailErr.message));
+                sender(user.email, subject, html);
             }
         }).catch(err => console.log('Background User lookup failed:', err.message));
 
@@ -243,7 +238,7 @@ export async function updateRegStatus(req, res) {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
+}
 
 export async function getAllRegistrations(req, res) {
     try {
