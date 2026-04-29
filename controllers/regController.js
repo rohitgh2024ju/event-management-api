@@ -36,6 +36,7 @@ export function sendMail(to, subject, html, attachments = []) {
         console.error(`Mail Error for ${to}:`, err.message);
     });
 };
+
 export async function regForEvent(req, res) {
     try {
         const eventId = req.params.id;
@@ -99,20 +100,21 @@ export async function regForEvent(req, res) {
                         }
                     ]
                 });
+
+                res.status(201).json({
+                    message: 'Registration successful',
+                    registration: {
+                        id: regUser._id,
+                        status: regUser.status
+                    },
+                    qrToken,
+                    qrImage
+                });
             }
         } catch (mailErr) {
             console.log("Email failed:", mailErr.message);
         }
 
-        res.status(201).json({
-            message: 'Registration successful',
-            registration: {
-                id: regUser._id,
-                status: regUser.status
-            },
-            qrToken,
-            qrImage
-        });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
