@@ -7,7 +7,6 @@ import { authMiddleware } from '../middlewares/authMiddleware.js';
 
 dotenv.config();
 
-dotenv.config();
 
 export async function signup(req, res) {
     try {
